@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  fastapi-app:
+    build: .
+    container_name: rag-microservice
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent data for SQLite, FAISS, BM25
+      - ./data/persistent:/app/data/persistent
+      # Mount sample docs (optional, for easy testing)
+      - ./data/sample_docs:/app/data/sample_docs
+    environment:
+      # Database
+      - DATABASE_URL=sqlite:////app/data/persistent/rag.db
+
+      # Indices
+      - FAISS_INDEX_PATH=/app/data/persistent/faiss.index
+      - BM25_INDEX_PATH=/app/data/persistent/bm25.pkl
+
+      # Models
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - LLM_MODEL=llama-3.3-70b-versatile
+      # IMPORTANT: Replace with your actual Groq API key from https://console.groq.com
+      - GROQ_API_KEY=${GROQ_API_KEY:-your_groq_api_key_here}
+
+      # Chunking
+      - CHUNK_SIZE=512
+      - CHUNK_OVERLAP=50
+
+      # Retrieval
+      - TOP_K_DEFAULT=5
+      - RRF_K=60
+      - MMR_LAMBDA=0.7
+
+      # Validation
+      - ENTROPY_THRESHOLD=0.3
+      - GROUNDING_THRESHOLD=0.7
+
+      # LLM generation
+      - LLM_TEMPERATURE=0.1
+      - LLM_MAX_TOKENS=500
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
